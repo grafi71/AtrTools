@@ -1,2 +1,2 @@
-# AtrConv
-Set of  conversion tools supporting Atari development
+# AtrTools
+Set of tools supporting Atari development
