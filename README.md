@@ -25,7 +25,7 @@ or simply
 
 ## IMGConv
 
-Convert indexed gif image to Atari Masm assembly format. The rgb colors from the image palette are converted as well.
+Convert indexed gif image to Atari MADS assembly format. The rgb colors from the image palette are converted as well.
 
 ---
 **IMGConv will not change the image resolution. You must provide it a gif image with proper resolution and color depth.**
@@ -66,7 +66,7 @@ Convert monochrome 16-colors gif (4-bits per color) to .asm file (Atari GTIA mod
 
 ## SAPConv
 
-Convert Atari SAP music file to Atari Masm assembly format (bytes).
+Convert Atari SAP music file to Atari MADS assembly format (bytes).
 
 ### Usage
 
