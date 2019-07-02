@@ -14,7 +14,6 @@ from PIL import Image
 def log():
 	return logging.getLogger(__name__)
 
-
 class RGB2AtariColorConverter:
     "Convert RGB value to ATARI HUE/SAT"
     
@@ -37,6 +36,7 @@ class RGB2AtariColorConverter:
         return x
 
     def convert(self):
+        "Convert colors"
         ir, ig, ib = self.colors
         m = 0xFFFFF
 
@@ -76,7 +76,7 @@ class RGB2AtariColorConverter:
                 j = i
 
         val =  (ir, ig, ib, j, j/16, j%16)
-        logging.debug("R=%3d G=%3d B=%3d : $%02X Hue = %d Lum = %d", *val)
+        log().debug("R=%3d G=%3d B=%3d : $%02X Hue = %d Lum = %d", *val)
         return val
 
 
@@ -92,6 +92,8 @@ class AtariImageConverter:
         self.colors = []
 
     def process(self):
+        "Process image"
+        log().debug('Processing image data')
         def color_generator():
             buffer = []
             for c in img.palette.palette:
@@ -112,6 +114,7 @@ class AtariImageConverter:
                     col = img.getpixel((hbyte*self.args.ratio+i, vpos))
                     bval <<= int(8/self.args.ratio)
                     bval |= col
+                assert bval<256, "Error: byte value greater then 255, consider changing color ratio!"
                 line.append(bval)
             lines.append(line)
         self.lines = lines
@@ -121,15 +124,13 @@ class AtariImageConverter:
     # image.width / ratio = bytes per row
 
     def compress(self):
-        def data_generator(data):
-            yield 1
-        logging.debug('Size before: %d', (sum(len(i) for i in self.lines)))
-        flat_data = list(itertools.chain.from_iterable(self.lines))
-        data = data_generator(flat_data)
-        logging.debug('Size after: %d', (sum(self.compressed)))
-
+        "Compress routine"
+        log().debug('Compressing image data')
+        log().warning('Compression is not yet implemented')
 
     def save(self):
+        "Save image data"
+        log().debug('Saving image data to file')
         print("\t\t.local image ; WIDTH={} HEIGHT={}".format(self.width, self.height), file=self.args.destination)
         for line in self.lines:
             sval = ",".join("${:02x}".format(i) for i in line)
@@ -143,23 +144,29 @@ class AtariImageConverter:
         print("\t\t.endl", file=self.args.destination)
 
 def add_parser_args(parser):
+    "Add cli arguments to parser"
     parser.add_argument('source', type=argparse.FileType('rb'), help='path to source gif file')
     parser.add_argument('destination', type=argparse.FileType('w'), help='path to destination asm file')
     parser.add_argument('-z', '--compress', help='compress data', action='store_true')
-    parser.add_argument('-r', '--ratio', help='color bits per byte ratio', type=int, choices=(8,4,2), default=8)
+    parser.add_argument('-r', '--ratio', help='colors per byte ratio', type=int, choices=(8,4,2), default=8)
 
 def get_parser():
+    "Create parser and add cli arguments"
     parser = argparse.ArgumentParser()
     add_parser_args(parser)
     return parser  
 
 def process(args):
+    "Main processing"
+    log().debug("Start processing")
     img_converter = AtariImageConverter(args)
     img_converter.process()
     img_converter.compress()
     img_converter.save()
+    log().debug("Done")
 
 def main():
+    "Parse arguments and process data"
     parser = get_parser()
     args = parser.parse_args()  
     process(args)

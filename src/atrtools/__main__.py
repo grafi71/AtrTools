@@ -1,3 +1,5 @@
+"""Set of Atari development conversion tools.
+"""
 import argparse 
 import logging
 
@@ -5,10 +7,6 @@ from atrtools import imgconv
 from atrtools import sapconv
 
 VERSION = '0.1.0'
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%Y-%m-%d %H:%M')
 
 def log():
     return logging.getLogger(__name__)
@@ -34,7 +32,7 @@ def parse_args():
 
     subparsers = parser.add_subparsers(help='Select tool')
     
-    parser_sapconv = subparsers.add_parser('sapconv', help='Sap music converter', parents=[parent_parser])
+    parser_sapconv = subparsers.add_parser('sapconv', help='SAP music converter', parents=[parent_parser])
     parser_imgconv = subparsers.add_parser('imgconv', help='Gif image converter', parents=[parent_parser])
     
     parser_sapconv.set_defaults(func=run_sapconv)

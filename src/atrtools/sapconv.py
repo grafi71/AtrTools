@@ -18,6 +18,8 @@ def log():
 
     
 class AtariSAPConverter:
+    "Atari SAP Converter class"
+    
     def __init__(self, args):
         self.args=args
         self.sap=args.source.read()
@@ -26,6 +28,7 @@ class AtariSAPConverter:
         self.data = []
 
     def process(self):
+        log().debug('Processing music data')
         index = self.sap.index(b'\xff\xff')
         logging.debug("Binary index: %d ; Data total length: %d", index, len(self.sap))
         header = self.sap[0: index].decode()
@@ -55,6 +58,7 @@ class AtariSAPConverter:
                 break
 
     def generate_music_data(self, data):
+        log().debug('Generating music data')
         buf = []
         for i in data:
             buf.append(i)
@@ -67,6 +71,8 @@ class AtariSAPConverter:
             yield ".byte {}".format(','.join(bts))
 
     def save(self):
+        "Save music"
+        log().debug('Saving music data to file')
         for k in self.labels:
                 print('SAP_MUSIC_{} = ${}'.format(k, self.labels[k]), file=self.args.destination)
         print("\n\t.local sap_music_header", file=self.args.destination)
@@ -88,22 +94,28 @@ class AtariSAPConverter:
                 self.args.out.write(data.music_data)
 
 def add_parser_args(parser):
+    "Add cli arguments to parser"
     parser.add_argument('source', type=argparse.FileType('rb'), help='path to source sap file')
     parser.add_argument('destination', type=argparse.FileType('w'), help='path to destination asm file')
     parser.add_argument('-l', '--labels', nargs='+', default=['INIT', 'PLAYER'], help='labelled header keys', required=False)
     parser.add_argument('-o', '--out', type=argparse.FileType('wb'), help='path to binary output file')
 
 def get_parser():
+    "Create parser and add cli arguments"
     parser = argparse.ArgumentParser()
     add_parser_args(parser)
     return parser
 
 def process(args):
+    "Main processing"
+    log().debug("Start processing")
     sap_converter = AtariSAPConverter(args)
     sap_converter.process()
     sap_converter.save()
+    log().debug("Done")
 
 def main():
+    "Parse arguments and process data"
     parser = get_parser()
     args = parser.parse_args()
     process(args)
