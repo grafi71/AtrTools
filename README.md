@@ -2,8 +2,8 @@
 Set of tools supporting Atari 8-bit development
 
 Currently the package consist of two modules:
-- imgconv
-- sapconv
+- **IMGconv**
+- **SAPconv**
 
 ## Requirements
 
@@ -23,7 +23,7 @@ or simply
 
 `atrtools`
 
-## ImgConv
+## IMGConv
 
 Convert indexed gif image to Atari Masm assembly format. The rgb colors from the image palette are converted as well.
 
@@ -47,15 +47,19 @@ Convert indexed 4-colors gif (2-bit per color) to .asm file (Atari ANTIC mode 14
 
 `imgconv path_to_input_file.gif path_to_output.asm -r 4`
 
-Convert indexed 9-colors gif (4-bit per color) to .asm file (Atari GTIA mode 8 data):
-
-`imgconv path_to_input_file.gif path_to_output.asm -r 2`
-
 Convert monochrome (1-bit per color) to .asm file (Atari ANTIC mode 15 data):
 
 `imgconv path_to_input_file.gif path_to_output.asm -r 8`
 
-## ImgConv
+Convert indexed 9-colors gif (4-bit per color) to .asm file (Atari GTIA mode 8 data):
+
+`imgconv path_to_input_file.gif path_to_output.asm -r 2`
+
+Convert monochrome 16-colors gif (4-bit per color) to .asm file (Atari GTIA mode 4 data):
+
+`imgconv path_to_input_file.gif path_to_output.asm -r 2`
+
+## SAPConv
 
 Convert Atari SAP music file to Atari Masm assembly format (bytes).
 
