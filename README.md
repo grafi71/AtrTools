@@ -41,6 +41,20 @@ or simply
 
 `imgconv -h`
 
+### Example
+
+Convert indexed 4-colors gif (2-bit per color) to .asm file (Atari ANTIC mode 14 data):
+
+`imgconv path_to_input_file.gif path_to_output.asm -r 4`
+
+Convert indexed 9-colors gif (4-bit per color) to .asm file (Atari GTIA mode 8 data):
+
+`imgconv path_to_input_file.gif path_to_output.asm -r 2`
+
+Convert monochrome (1-bit per color) to .asm file (Atari ANTIC mode 15 data):
+
+`imgconv path_to_input_file.gif path_to_output.asm -r 8`
+
 ## ImgConv
 
 Convert Atari SAP music file to Atari Masm assembly format (bytes).
