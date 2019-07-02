@@ -1,8 +1,8 @@
 import argparse 
 import logging
 
-from atatools import imgconv
-from atatools import sapconv
+from atrtools import imgconv
+from atrtools import sapconv
 
 VERSION = '0.1.0'
 
@@ -26,7 +26,7 @@ def run_imgconv(args):
 def parse_args():
     "Parse command-line argumenmts"
     parent_parser = argparse.ArgumentParser(add_help=False)
-    parent_parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__), 
+    parent_parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(VERSION), 
                                 help='Print version and quit')
 
     parser = argparse.ArgumentParser(description='Atari Development Support Tools')

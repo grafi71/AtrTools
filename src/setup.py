@@ -9,8 +9,8 @@ setup(
     license = 'MIT',
     packages = find_packages(),
     install_requires = ['pillow'],
-    entry_points = {'console_scripts': ['atrtool=atrtools.__main__:main', 
-                                        'atrimgcon=atrtools.imgconv.__main__:main',
-                                        'atrsapcon=atrtools.sapconv.__main__:main'] },
+    entry_points = {'console_scripts': ['atrtools=atrtools.__main__:main', 
+                                        'imgconv=atrtools.imgconv:main',
+                                        'sapconv=atrtools.sapconv:main'] },
     zip_safe=True
 )
