@@ -27,6 +27,11 @@ or simply
 
 Convert indexed gif image to Atari Masm assembly format. The rgb colors from the image palette are converted as well.
 
+---
+**IMGConv will not change the image resolution. You must provide it a gif image with proper resolution and color depth.**
+
+---
+
 ### Usage
 
 To get help type:
