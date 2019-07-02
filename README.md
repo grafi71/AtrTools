@@ -15,7 +15,7 @@ To install the package execute following command in src folder:
 
 `python setup.py install`
 
-Check installation by typing
+Verify installation by typing
 
 `python -m atrtools`
 
