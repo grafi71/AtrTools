@@ -33,6 +33,10 @@ To get help type:
 
 `python -m atrtools.imgconv -h`
 
+or 
+
+`atrtools imgconv -h`
+
 or simply
 
 `imgconv -h`
@@ -46,6 +50,10 @@ Convert Atari SAP music file to Atari Masm assembly format (bytes).
 To get help type:
 
 `python -m atrtools.sapconv -h`
+
+or 
+
+`atrtools sapconv -h`
 
 or simply
 
