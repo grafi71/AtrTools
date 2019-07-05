@@ -30,7 +30,13 @@ class AtariSAPConverter:
     def process(self):
         log().debug('Processing music data')
         index = self.sap.index(b'\xff\xff')
-        logging.debug("Binary index: %d ; Data total length: %d", index, len(self.sap))
+
+        if self.args.verbose:
+            print("Binary index: %d" % index)
+            print("Binary data total length: %d" % len(self.sap))
+        logging.debug("Binary index: %d", index)
+        logging.debug("Binary data total length: %d", len(self.sap))
+
         header = self.sap[0: index].decode()
         for line in header.split('\r\n'):
             match = RGX.match(line)
@@ -50,9 +56,16 @@ class AtariSAPConverter:
             address_start = "{:02x}{:02x}".format(beg_byte_high, beg_byte_low)
             address_end = "{:02x}{:02x}".format(end_byte_high, end_byte_low)
             size_bytes = (end_byte_high*256+end_byte_low)-(beg_byte_high*256+beg_byte_low)
-            logging.debug("Start address: %s ; End address: %s ; Size: %d",address_start, address_end, size_bytes)
+            if self.args.verbose:
+                print("Start address: $%s" % address_start)
+                print("End address: $%s" % address_end)
+                print("Size: $%04x" % size_bytes)
+            logging.debug("Start address: $%s", address_start)
+            logging.debug("End address: $%s", address_end)
+            logging.debug("Size: $%04x", size_bytes)
             self.data.append(MusicData(address_start=address_start,
-                                       address_end=address_end, music_data=self.sap[index: index+size_bytes+1]))
+                                       address_end=address_end, 
+                                       music_data=self.sap[index: index+size_bytes+1]))
             index += size_bytes
             if index == len(self.sap)-1:
                 break
@@ -70,9 +83,8 @@ class AtariSAPConverter:
             bts = ['${:02x}'.format(n) for n in buf]
             yield ".byte {}".format(','.join(bts))
 
-    def save(self):
-        "Save music"
-        log().debug('Saving music data to file')
+    def __save_asm(self):
+        "Save asm file"
         for k in self.labels:
                 print('SAP_MUSIC_{} = ${}'.format(k, self.labels[k]), file=self.args.destination)
         print("\n\t.local sap_music_header", file=self.args.destination)
@@ -82,7 +94,7 @@ class AtariSAPConverter:
 
         for idx, data in enumerate(self.data):
             print("\n\torg ${}\n".format(data.address_start), file=self.args.destination)
-            print("\t.local sap_music_data{} ; start={}, end={}".format(idx, data.address_start, 
+            print("\t.local sap_music_data{} ; start=${}, end=${}".format(idx, data.address_start, 
                                                                  data.address_end), 
                                                                  file=self.args.destination)
             gen_data = self.generate_music_data(data.music_data)
@@ -90,15 +102,26 @@ class AtariSAPConverter:
                 print("\t{}".format(row), file=self.args.destination)
             print("\t.endl", file=self.args.destination)
 
-            if self.args.out:
-                self.args.out.write(data.music_data)
+    def __save_bin(self):
+        "Save binary file"  
+        for _, data in enumerate(self.data):
+            self.args.destination.write(data.music_data)
+
+    def save(self):
+        "Save music"
+        log().debug('Saving music data to file')
+        if self.args.type == 'asm':
+            self.__save_asm()
+        elif self.args.type == 'bin':
+            self.__save_bin()
 
 def add_parser_args(parser):
     "Add cli arguments to parser"
     parser.add_argument('source', type=argparse.FileType('rb'), help='path to source sap file')
     parser.add_argument('destination', type=argparse.FileType('w'), help='path to destination asm file')
     parser.add_argument('-l', '--labels', nargs='+', default=['INIT', 'PLAYER'], help='labelled header keys', required=False)
-    parser.add_argument('-o', '--out', type=argparse.FileType('wb'), help='path to binary output file')
+    parser.add_argument('-t', '--type', choices=('asm', 'binary'), help='seelct output type')
+    parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
 
 def get_parser():
     "Create parser and add cli arguments"

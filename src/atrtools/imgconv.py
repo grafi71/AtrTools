@@ -149,6 +149,7 @@ def add_parser_args(parser):
     parser.add_argument('destination', type=argparse.FileType('w'), help='path to destination asm file')
     parser.add_argument('-z', '--compress', help='compress data', action='store_true')
     parser.add_argument('-r', '--ratio', help='colors per byte ratio', type=int, choices=(8,4,2), default=8)
+    parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
 
 def get_parser():
     "Create parser and add cli arguments"
