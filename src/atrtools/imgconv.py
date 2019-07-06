@@ -3,6 +3,7 @@ This is converter of indexed gif files (1-8 colors) to Atari .asm data file.
 Requires pillow package to be installed.
 """
 
+import os
 import argparse
 import logging
 import math
@@ -135,26 +136,28 @@ class AtariImageConverter:
         log().warning('Compression is not yet implemented')
 
     def __write(self, value):
-        self.args.destination.write(value.encode())
+        self.args.destination.write(("{}{}".format(value, os.linesep)).encode())
 
     def __save_asm(self):
         "Save image data as asm"
         log().debug('Saving image data to file')
-        self.__write("\t.local image ; width={} height={}\n".format(self.width, self.height))
+        self.__write("\t.local image_{} ; width={} height={}".format(
+                     self.args.label, self.width, self.height))
         for row, line in enumerate(self.lines, 1):
             sval = ",".join("${:02x}".format(i) for i in line)
-            self.__write("line{}\t.byte {}\n".format(row, sval))
-        self.__write("\t.endl\n")
+            self.__write("l{:02x}\t.byte {}".format(row, sval))
+        self.__write("\t.endl")
         
-        self.__write("\t.local colors\n")
+        self.__write("\t.local colors_{}".format(self.args.label))
         for index, color in enumerate(self.colors):
+            all = (index, *(RGB2AtariColorConverter(color).value[:4]))
             cnv = RGB2AtariColorConverter(color)
-            self.__write("\t.byte ${:02x}\n".format(cnv.value[3]))
+            self.__write("c{}\t.byte ${:02x}".format(index, cnv.value[3]))
             if self.args.verbose:
                 print("Color {} [{:02x}{:02x}{:02x}] = {}".format(index, cnv.value[0],
                                                              cnv.value[1], cnv.value[2], 
                                                              cnv.value[3]))
-        self.__write("\t.endl\n")
+        self.__write("\t.endl")
 
     def __save_bin(self):
         pass
@@ -171,6 +174,7 @@ def add_parser_args(parser):
     parser.add_argument('source', type=argparse.FileType('rb'), help='path to source gif file')
     parser.add_argument('destination', type=argparse.FileType('wb'), help='path to destination asm file')
     parser.add_argument('-z', '--compress', help='compress data', action='store_true')
+    parser.add_argument('-l', '--label', help='label name', default='1')
     parser.add_argument('-r', '--ratio', help='colors per byte ratio', type=int, choices=(8,4,2), default=8)
     parser.add_argument('-t', '--type', choices=('asm', 'binary'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
