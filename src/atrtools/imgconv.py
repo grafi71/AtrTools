@@ -140,27 +140,35 @@ class AtariImageConverter:
 
     def __save_asm(self):
         "Save image data as asm"
+        def generate_lines():
+            nxt = 1
+            for lnum, line in enumerate(self.lines, 1):
+                yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
+                if not lnum%96 and self.args.align and len(self.lines)>lnum:
+                    yield '\t.align 4096'
+                    yield 'next_{}'.format(nxt)
+                    nxt += 1
+        
         log().debug('Saving image data to file')
+        if self.args.align:
+            self.__write("\t.align 4096")
         self.__write("\t.local image_{} ; width={} height={}".format(
                      self.args.label, self.width, self.height))
-        for row, line in enumerate(self.lines, 1):
-            sval = ",".join("${:02x}".format(i) for i in line)
-            self.__write("l{:02x}\t.byte {}".format(row, sval))
+
+        for line in generate_lines():
+            self.__write(line)
         self.__write("\t.endl")
         
         self.__write("\t.local colors_{}".format(self.args.label))
         for index, color in enumerate(self.colors):
-            all = (index, *(RGB2AtariColorConverter(color).value[:4]))
-            cnv = RGB2AtariColorConverter(color)
-            self.__write("c{}\t.byte ${:02x}".format(index, cnv.value[3]))
+            clr = (index, *(RGB2AtariColorConverter(color).value[:4]))
+            self.__write("c{}\t.byte ${:02x}".format(index, clr[-1]))
             if self.args.verbose:
-                print("Color {} [{:02x}{:02x}{:02x}] = {}".format(index, cnv.value[0],
-                                                             cnv.value[1], cnv.value[2], 
-                                                             cnv.value[3]))
+                print("Color {} [{:02x}{:02x}{:02x}] = {}".format(*clr))
         self.__write("\t.endl")
 
     def __save_bin(self):
-        pass
+        self.args.destination.write()
     
     def save(self):
         "Save image data"
@@ -175,6 +183,7 @@ def add_parser_args(parser):
     parser.add_argument('destination', type=argparse.FileType('wb'), help='path to destination asm file')
     parser.add_argument('-z', '--compress', help='compress data', action='store_true')
     parser.add_argument('-l', '--label', help='label name', default='1')
+    parser.add_argument('-a', '--align', help='generate align for asm file', action='store_true')
     parser.add_argument('-r', '--ratio', help='colors per byte ratio', type=int, choices=(8,4,2), default=8)
     parser.add_argument('-t', '--type', choices=('asm', 'binary'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')

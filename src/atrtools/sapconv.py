@@ -3,6 +3,7 @@ This is converter of indexed gif files (1-8 colors) to Atari .asm data file.
 Requires pillow package to be installed.
 """
 
+import os
 import re
 import argparse
 import logging
@@ -29,6 +30,7 @@ class AtariSAPConverter:
 
     def process(self):
         log().debug('Processing music data')
+        assert self.sap[0:3] == b'SAP', 'This is not a SAP file!'
         index = self.sap.index(b'\xff\xff')
 
         if self.args.verbose:
@@ -43,11 +45,23 @@ class AtariSAPConverter:
             if match:
                 k = match.group(1).upper()
                 v  = match.group(2).upper()
+                if k == 'TYPE':
+                    assert v == 'B', 'Type {} is not supported'.format(v)
                 if k in self.args.labels:
                     self.labels[k] = v
                 else:
                     self.header[k] = v
         index +=2
+
+        for label in self.labels:
+                logging.debug("%s: %s", label, self.labels[label])
+                if self.args.verbose:
+                    print("{}: {}".format(label, self.labels[label]))
+        for header in self.header:
+                logging.debug("%s: %s", header, self.header[header])
+                if self.args.verbose:
+                    print("{}: {}".format(header, self.header[header]))
+
         while True:
             beg_byte_low, beg_byte_high = self.sap[index:index+2]
             index += 2
@@ -63,6 +77,8 @@ class AtariSAPConverter:
             logging.debug("Start address: $%s", address_start)
             logging.debug("End address: $%s", address_end)
             logging.debug("Size: $%04x", size_bytes)
+
+            
             self.data.append(MusicData(address_start=address_start,
                                        address_end=address_end, 
                                        music_data=self.sap[index: index+size_bytes+1]))
@@ -83,24 +99,26 @@ class AtariSAPConverter:
             bts = ['${:02x}'.format(n) for n in buf]
             yield ".byte {}".format(','.join(bts))
 
+    def __write(self, value):
+        self.args.destination.write(("{}{}".format(value, os.linesep)).encode())
+
     def __save_asm(self):
         "Save asm file"
         for k in self.labels:
-                print('SAP_MUSIC_{} = ${}'.format(k, self.labels[k]), file=self.args.destination)
-        print("\n\t.local sap_music_header", file=self.args.destination)
+                self.__write('SAP_MUSIC_{} = ${}'.format(k, self.labels[k]))
+        self.__write("\n\t.local sap_music_header")
         for k in self.header:
-                print('{}\t.byte "{}"'.format(k, self.header[k]), file=self.args.destination)
-        print("\t.endl", file=self.args.destination)
+                self.__write('{}\t.byte "{}"'.format(k, self.header[k]))
+        self.__write("\t.endl")
 
         for idx, data in enumerate(self.data):
-            print("\n\torg ${}\n".format(data.address_start), file=self.args.destination)
-            print("\t.local sap_music_data{} ; start=${}, end=${}".format(idx, data.address_start, 
-                                                                 data.address_end), 
-                                                                 file=self.args.destination)
+            self.__write("\n\torg ${}\n".format(data.address_start))
+            self.__write("\t.local sap_music_data{} ; start=${}, end=${}".format(idx, data.address_start, 
+                                                                 data.address_end))
             gen_data = self.generate_music_data(data.music_data)
             for row in gen_data:
-                print("\t{}".format(row), file=self.args.destination)
-            print("\t.endl", file=self.args.destination)
+                self.__write("\t{}".format(row))
+            self.__write("\t.endl")
 
     def __save_bin(self):
         "Save binary file"  
