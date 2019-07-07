@@ -92,6 +92,10 @@ class AtariImageConverter:
         self.compressed = []
         self.colors = []
 
+    @property
+    def bytes_per_line(self):
+        return self.width / self.args.ratio
+        
     def process(self):
         "Process image"
         log().debug('Processing image data')
