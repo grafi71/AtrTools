@@ -77,8 +77,7 @@ class AtariSAPConverter:
             logging.debug("Start address: $%s", address_start)
             logging.debug("End address: $%s", address_end)
             logging.debug("Size: $%04x", size_bytes)
-
-            
+ 
             self.data.append(MusicData(address_start=address_start,
                                        address_end=address_end, 
                                        music_data=self.sap[index: index+size_bytes+1]))

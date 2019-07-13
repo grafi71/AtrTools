@@ -10,7 +10,7 @@ import math
 import itertools
 
 from PIL import Image
-
+from atrtools.compress import Compress
 
 def log():
 	return logging.getLogger(__name__)
@@ -28,18 +28,11 @@ class RGB2AtariColorConverter:
         self.rgb = [[0 for i in range(0,3)] for j in range(0,256)]
         self.value = self.convert()
 
-    @staticmethod
-    def clip_var(x):
-        if x > 0xff:
-            return 0xff 
-        if x < 0:
-            return 0
-        return x
-
     def convert(self):
         "Convert colors"
         ir, ig, ib = self.colors
         m = 0xFFFFF
+        clip_var = lambda x: 0xff if x>0xff else (0 if x <0 else x)
 
         for i in range(0, 16):
             if not i:
@@ -54,9 +47,9 @@ class RGB2AtariColorConverter:
                 r1 = y + r
                 g1 = y - r - b
                 b1 = y + b
-                r1 = self.__class__.clip_var(r1)
-                g1 = self.__class__.clip_var(g1)
-                b1 = self.__class__.clip_var(b1)
+                r1 = clip_var(r1)
+                g1 = clip_var(g1)
+                b1 = clip_var(b1)
 
                 self.rgb[i * 16 + j][0] = r1
                 self.rgb[i * 16 + j][1] = g1
@@ -89,7 +82,7 @@ class AtariImageConverter:
         self.lines = []
         self.width = None
         self.height = None
-        self.compressed = []
+        self.compressed = None
         self.colors = []
 
     @property
@@ -134,35 +127,61 @@ class AtariImageConverter:
     
     # image.width / ratio = bytes per row
 
+    def lines_to_bytearray(self):
+        data = bytearray()
+        for i in self.lines:
+            data.extend(i)
+        return data
+
     def compress(self):
         "Compress routine"
         log().debug('Compressing image data')
-        log().warning('Compression is not yet implemented')
+        data = self.lines_to_bytearray()
+        compress = Compress(data)
+        log().info('Data size: %d', len(data))
+        compress.compress()
+        compress.pack()
+        self.compressed = bytearray(compress.packed)
+        log().info('Packed size: %d', len(self.compressed))
 
     def __write(self, value):
         self.args.destination.write(("{}{}".format(value, os.linesep)).encode())
 
     def __save_asm(self):
         "Save image data as asm"
-        def generate_lines():
+        def generate_lines(lines):
             nxt = 1
-            for lnum, line in enumerate(self.lines, 1):
+            for lnum, line in enumerate(lines):
                 yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
                 if not lnum%96 and self.args.align and len(self.lines)>lnum:
                     yield '\t.align 4096'
                     yield 'next_{}'.format(nxt)
                     nxt += 1
         
+        def generate_compressed_lines(data):
+            n = self.args.number
+            lines = [data[i*n: i*n+n] for i in range(len(data)//n+(1 if len(data)%n else 0))]
+            for line in lines:
+                yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
+
         log().debug('Saving image data to file')
-        if self.args.align:
+        if self.args.align and not self.args.compress:
             self.__write("\t.align 4096")
+        
         self.__write("\t.local image_{} ; width={} height={}".format(
                      self.args.label, self.width, self.height))
 
-        for line in generate_lines():
-            self.__write(line)
-        self.__write("\t.endl")
+        generated_lines = generate_lines(self.lines) if not self.args.compress else \
+                          generate_compressed_lines(self.compressed)
         
+        for line in generated_lines:
+            self.__write(line)
+        
+        self.__write("\t.endl")
+        self.write_colors()
+
+    def write_colors(self):
+        "Append color information"
         self.__write("\t.local colors_{}".format(self.args.label))
         for index, color in enumerate(self.colors):
             clr = (index, *(RGB2AtariColorConverter(color).value[:4]))
@@ -172,7 +191,12 @@ class AtariImageConverter:
         self.__write("\t.endl")
 
     def __save_bin(self):
-        self.args.destination.write()
+        "Save binary data"
+        if not self.args.compress:
+            data = self.lines_to_bytearray()
+            self.args.destination.write(data)
+        else:
+            self.args.destination.write(self.compressed)
     
     def save(self):
         "Save image data"
@@ -186,6 +210,8 @@ def add_parser_args(parser):
     parser.add_argument('source', type=argparse.FileType('rb'), help='path to source gif file')
     parser.add_argument('destination', type=argparse.FileType('wb'), help='path to destination asm file')
     parser.add_argument('-z', '--compress', help='compress data', action='store_true')
+    parser.add_argument('-n', '--number', type=int, default=20, help='number of bytes per line for compressed data')
+
     parser.add_argument('-l', '--label', help='label name', default='1')
     parser.add_argument('-a', '--align', help='generate align for asm file', action='store_true')
     parser.add_argument('-r', '--ratio', help='colors per byte ratio', type=int, choices=(8,4,2), default=8)
