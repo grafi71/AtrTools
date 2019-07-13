@@ -128,6 +128,7 @@ class AtariImageConverter:
     # image.width / ratio = bytes per row
 
     def lines_to_bytearray(self):
+        "Convert all lines to single bytearray" 
         data = bytearray()
         for i in self.lines:
             data.extend(i)
@@ -149,7 +150,10 @@ class AtariImageConverter:
 
     def __save_asm(self):
         "Save image data as asm"
+        log().debug('Saving image data to file')
+
         def generate_lines(lines):
+            "Generator for uncompressed asm data lines"
             nxt = 1
             for lnum, line in enumerate(lines):
                 yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
@@ -157,14 +161,13 @@ class AtariImageConverter:
                     yield '\t.align 4096'
                     yield 'next_{}'.format(nxt)
                     nxt += 1
-        
         def generate_compressed_lines(data):
+            "Generator for compressed asm data lines"
             n = self.args.number
             lines = [data[i*n: i*n+n] for i in range(len(data)//n+(1 if len(data)%n else 0))]
             for line in lines:
                 yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
 
-        log().debug('Saving image data to file')
         if self.args.align and not self.args.compress:
             self.__write("\t.align 4096")
         
@@ -195,14 +198,18 @@ class AtariImageConverter:
         if not self.args.compress:
             data = self.lines_to_bytearray()
             self.args.destination.write(data)
+            log().debug('Saved raw file')
         else:
             self.args.destination.write(self.compressed)
-    
+            log().debug('Saved compressed file')
+
     def save(self):
         "Save image data"
         if self.args.type == 'asm':
+            log().debug('Saving asm file')
             self.__save_asm()
         elif self.args.type == 'bin':
+            log().debug('Saving binary file')
             self.__save_bin()
 
 def add_parser_args(parser):
