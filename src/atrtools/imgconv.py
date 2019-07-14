@@ -105,8 +105,7 @@ class AtariImageConverter:
         logging.debug("Image resolution: %dx%d", img.width, img.height)
 
         if self.args.verbose:
-            print("Image width: {}".format(img.width))
-            print("Image height: {}".format(img.height))
+            print("Image resolution: {}x{}".format(img.width, img.height))
         
         self.width, self.height = (img.width, img.height)
         for vpos in range(0, img.height):
@@ -142,7 +141,12 @@ class AtariImageConverter:
         compress.compress()
         compress.pack()
         self.compressed = bytearray(compress.packed)
-        log().info('Packed size: %d', len(self.compressed))
+        sc = len(self.compressed)
+        su = len(data)
+        rc = sc / su
+        if self.args.verbose:
+            print("Size: {} Packed: {} Ratio: {:.2f}".format(su, sc, rc))
+        log().info('Size: %d Packed: %d Ratio: %d', su, sc, rc)
 
     def __write(self, value):
         self.args.destination.write(("{}{}".format(value, os.linesep)).encode())
