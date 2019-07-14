@@ -102,8 +102,7 @@ class AtariImageConverter:
 
         lines = []
         img = Image.open(self.args.source)
-        logging.debug("Image width: %d", img.width)
-        logging.debug("Image height: %d", img.height)
+        logging.debug("Image resolution: %dx%d", img.width, img.height)
 
         if self.args.verbose:
             print("Image width: {}".format(img.width))
@@ -155,7 +154,7 @@ class AtariImageConverter:
         def generate_lines(lines):
             "Generator for uncompressed asm data lines"
             nxt = 1
-            for lnum, line in enumerate(lines):
+            for lnum, line in enumerate(lines, 1):
                 yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
                 if not lnum%96 and self.args.align and len(self.lines)>lnum:
                     yield '\t.align 4096'
@@ -185,6 +184,7 @@ class AtariImageConverter:
 
     def write_colors(self):
         "Append color information"
+        log().debug('Saving color palette')
         self.__write("\t.local colors_{}".format(self.args.label))
         for index, color in enumerate(self.colors):
             clr = (index, *(RGB2AtariColorConverter(color).value[:4]))
@@ -221,7 +221,7 @@ def add_parser_args(parser):
 
     parser.add_argument('-l', '--label', help='label name', default='1')
     parser.add_argument('-a', '--align', help='generate align for asm file', action='store_true')
-    parser.add_argument('-r', '--ratio', help='colors per byte ratio', type=int, choices=(8,4,2), default=8)
+    parser.add_argument('-r', '--ratio', help='color ratio (8/ratio=colors per byte)', type=int, choices=(8,4,2), default=8)
     parser.add_argument('-t', '--type', choices=('asm', 'binary'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
 
