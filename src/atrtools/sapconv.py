@@ -134,8 +134,8 @@ class AtariSAPConverter:
 
 def add_parser_args(parser):
     "Add cli arguments to parser"
-    parser.add_argument('source', type=argparse.FileType('rb'), help='path to source sap file')
-    parser.add_argument('destination', type=argparse.FileType('wb'), help='path to destination asm file')
+    parser.add_argument('-s', '--source', type=argparse.FileType('rb'), help='path to source sap file', required=True)
+    parser.add_argument('-d', '--destination', type=argparse.FileType('wb'), help='path to destination asm file', required=True)
     parser.add_argument('-l', '--labels', nargs='+', default=['INIT', 'PLAYER'], help='labelled header keys', required=False)
     parser.add_argument('-t', '--type', choices=('asm', 'binary'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')

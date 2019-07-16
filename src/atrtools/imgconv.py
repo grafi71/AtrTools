@@ -11,6 +11,7 @@ import itertools
 
 from PIL import Image
 from atrtools.compress import Compress
+from atrtools.uncompress import Uncompress6502
 
 def log():
 	return logging.getLogger(__name__)
@@ -185,7 +186,17 @@ class AtariImageConverter:
         
         self.__write("\t.endl")
         self.write_colors()
+        self.write_uncompress()
 
+    def write_uncompress(self):
+        "Write uncompress routine"
+        if self.args.uncompress:
+            log().debug('Saving uncompress routine')
+            uncompress = Uncompress6502()
+            contents = uncompress.assembly.splitlines()
+            for content in contents:
+                print(content, file=self.args.uncompress)
+            
     def write_colors(self):
         "Append color information"
         log().debug('Saving color palette')
@@ -218,11 +229,11 @@ class AtariImageConverter:
 
 def add_parser_args(parser):
     "Add cli arguments to parser"
-    parser.add_argument('source', type=argparse.FileType('rb'), help='path to source gif file')
-    parser.add_argument('destination', type=argparse.FileType('wb'), help='path to destination asm file')
-    parser.add_argument('-z', '--compress', help='compress data', action='store_true')
+    parser.add_argument('-s', '--source', type=argparse.FileType('rb'), help='path to source gif file', required=True)
+    parser.add_argument('-d', '--destination', type=argparse.FileType('wb'), help='path to destination asm file', required=True)
+    parser.add_argument('-c', '--compress', help='compress data', action='store_true')
+    parser.add_argument('-u', '--uncompress', help='save routine for data uncompress', type=argparse.FileType('w'))
     parser.add_argument('-n', '--number', type=int, default=20, help='number of bytes per line for compressed data')
-
     parser.add_argument('-l', '--label', help='label name', default='1')
     parser.add_argument('-a', '--align', help='generate align for asm file', action='store_true')
     parser.add_argument('-r', '--ratio', help='color ratio (8/ratio=colors per byte)', type=int, choices=(8,4,2), default=8)
