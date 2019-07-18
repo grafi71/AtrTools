@@ -29,8 +29,10 @@ Convert indexed gif image to Atari MADS assembly format. The rgb colors from the
 
 ---
 **IMGConv will not change the image resolution. You must provide it a gif image with proper resolution and color depth.**
-
 ---
+
+It is possible to compress image data and to save 6502 uncompress routine to specified file.
+However, the uncompress routine assumes that the graphics data is 40-bytes per line.
 
 ### Usage
 
