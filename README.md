@@ -90,4 +90,4 @@ or simply
 
 Convert SAP file to .asm format (bytes):
 
-`sapconv path_to_input_file.sap path_to_output_file.asm`
+`sapconv -s path_to_input_file.sap -d path_to_output_file.asm`
