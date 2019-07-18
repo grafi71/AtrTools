@@ -50,23 +50,23 @@ or simply
 
 Convert indexed 4-colors gif (2-bits per color) to .asm file (Atari ANTIC mode 14 data):
 
-`imgconv path_to_input_file.gif path_to_output.asm -r 4`
+`imgconv -s path_to_input_file.gif -d -d path_to_output.asm -r 4`
 
 Convert monochrome (1-bit per color) to .asm file (Atari ANTIC mode 15 data):
 
-`imgconv path_to_input_file.gif path_to_output.asm -r 8`
+`imgconv -s path_to_input_file.gif -d path_to_output.asm -r 8`
 
 Convert indexed 9-colors gif (4-bits per color) to .asm file (Atari GTIA mode 8 data):
 
-`imgconv path_to_input_file.gif path_to_output.asm -r 2`
+`imgconv -s path_to_input_file.gif -d path_to_output.asm -r 2`
 
 Convert monochrome 16-colors gif (4-bits per color) to .asm file (Atari GTIA mode 4 data):
 
-`imgconv path_to_input_file.gif path_to_output.asm -r 2`
+`imgconv -s path_to_input_file.gif -d path_to_output.asm -r 2`
 
 Convert indexed 4-colors gif (2-bits per color) to compressed .asm file (Atari ANTIC mode 14 data), verbose output and save  uncompress  routine (6502 assembler) to given file:
 
-`imgconv path_to_input_file.gif path_to_output.asm -r 4 -e -c -u uncompress.asm`
+`imgconv -s path_to_input_file.gif -d path_to_output.asm -r 4 -e -c -u uncompress.asm`
 
 ## SAPConv
 
