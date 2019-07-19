@@ -161,7 +161,7 @@ class AtariImageConverter:
             nxt = 1
             for lnum, line in enumerate(lines, 1):
                 yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
-                if not lnum%96 and self.args.align and len(self.lines)>lnum:
+                if not lnum%102 and self.args.align and len(self.lines)>lnum:
                     yield '\t.align 4096'
                     yield 'next_{}'.format(nxt)
                     nxt += 1
