@@ -25,7 +25,7 @@ or simply
 
 ## IMGConv
 
-Convert indexed gif image to Atari MADS assembly format. The rgb colors from the image palette are converted as well.
+Converts indexed gif image to Atari MADS assembly format. The rgb colors from the image palette are converted as well.
 
 ---
 **IMGConv will not change the image resolution. You must provide it a gif image with proper resolution and color depth.**
@@ -48,7 +48,7 @@ or simply
 
 `imgconv -h`
 
-### Example
+### Examples
 
 Convert indexed 4-colors gif (2-bits per color) to .asm file (Atari ANTIC mode 14 data):
 
@@ -72,7 +72,7 @@ Convert indexed 4-colors gif (2-bits per color) to compressed .asm file (Atari A
 
 ## SAPConv
 
-Convert Atari SAP music file to Atari MADS assembly format (bytes).
+Converts Atari SAP music file to Atari MADS assembly format (bytes).
 
 ### Usage
 
