@@ -237,7 +237,7 @@ def add_parser_args(parser):
     parser.add_argument('-l', '--label', help='label name', default='1')
     parser.add_argument('-a', '--align', help='generate align for asm file', action='store_true')
     parser.add_argument('-r', '--ratio', help='color ratio (8/ratio=colors per byte)', type=int, choices=(8,4,2), default=8)
-    parser.add_argument('-t', '--type', choices=('asm', 'binary'), help='select output type', default='asm')
+    parser.add_argument('-t', '--type', choices=('asm', 'bin'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
 
 def get_parser():
