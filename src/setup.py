@@ -8,7 +8,7 @@ setup(
     author_email = 'grafi71@o2.pl',
     license = 'MIT',
     packages = find_packages(),
-    install_requires = ['pillow'],
+    install_requires = ['pillow', 'lz4'],
     entry_points = {'console_scripts': ['atrtools=atrtools.__main__:main', 
                                         'imgconv=atrtools.imgconv:main',
                                         'sapconv=atrtools.sapconv:main'] },

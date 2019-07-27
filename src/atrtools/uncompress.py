@@ -1,4 +1,21 @@
-class Uncompress6502:
+class Uncompress:
+	ASSEMBLY = ""
+	DEFAULTS = {}
+
+	def __init__(self, defaults=None):
+		self.__defaults = defaults or self.__class__.DEFAULTS
+		self.__assembly = self.__class__.ASSEMBLY.format(**self.defaults)
+	
+	@property
+	def defaults(self):
+		return self.__defaults
+
+	@property 
+	def assembly(self):
+		return self.__assembly
+
+
+class UncompressLegacy(Uncompress):
 	DEFAULTS = {
 		"SCREEN_SRC_L": "$C0",
 		"SCREEN_SRC_H": "$C1",
@@ -121,14 +138,78 @@ noincsh	sta SCREEN_SRC_L
 		rts
 		.endp
 """
-	def __init__(self, defaults=None):
-		self.__defaults = defaults or self.__class__.DEFAULTS
-		self.__assembly = self.__class__.ASSEMBLY.format(**self.defaults)
-	
-	@property
-	def defaults(self):
-		return self.__defaults
 
-	@property 
-	def assembly(self):
-		return self.__assembly
+class UncompressLz4(Uncompress):
+	ASSEMBLY = """
+; CODE: xxl, fox
+; ENTRY: destination adress store in DEST
+				.proc unlz4
+                jsr    get_byte                  ; length of literals
+                sta    token
+:4 				lsr
+                beq    read_offset               ; there is no literal
+                cmp    #$0f
+                jsr    getlength
+literals        jsr    get_byte
+                jsr    store
+                bne    literals
+read_offset     jsr    get_byte
+                tay
+                sec
+                eor    #$ff
+                adc    dest
+                sta    src
+                tya
+                php
+                jsr    get_byte
+                plp
+                bne    not_done
+                tay
+                beq    unlz4_done
+not_done        eor    #$ff
+                adc    dest+1
+                sta    src+1
+                ; c=1
+                lda    #$ff
+token           equ    *-1
+                and    #$0f
+                adc    #$03
+                cmp    #$13
+                jsr    getLength
+
+@               lda    $ffff
+src             equ    *-2
+                inw    src
+                jsr    store
+                bne    @-
+                beq    unlz4
+store           sta    $ffff
+dest            equ    *-2
+                inw    dest
+                dec    lenL
+                bne    unlz4_done
+                dec    lenH
+unlz4_done      rts
+getLength_next  jsr    get_byte
+                tay
+                clc
+                adc    #$00
+lenL            equ    *-1
+                bcc    @+
+                inc    lenH
+@               iny
+getLength       sta    lenL
+                beq    getLength_next
+                tay
+                beq    @+
+                inc    lenH
+@               rts
+
+lenH            .byte    $00
+
+get_byte        lda    $ffff
+source          equ    *-2
+                inw    source
+                rts
+		        .endp
+"""

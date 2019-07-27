@@ -10,8 +10,13 @@ import math
 import itertools
 
 from PIL import Image
+import lz4.frame
+
 from atrtools.compress import Compress
-from atrtools.uncompress import Uncompress6502
+from atrtools.uncompress import (UncompressLegacy, UncompressLz4)
+
+LZ4_SKIP_FIRST = 11
+LZ4_SKIP_LAST = 0
 
 def log():
 	return logging.getLogger(__name__)
@@ -137,17 +142,41 @@ class AtariImageConverter:
         "Compress routine"
         log().debug('Compressing image data')
         data = self.lines_to_bytearray()
-        compress = Compress(data)
         log().info('Data size: %d', len(data))
-        compress.compress()
-        compress.pack()
-        self.compressed = bytearray(compress.packed)
+        if self.args.compressor == 'legacy':
+            self.compressed = self.compress_legacy(data)
+        else:
+            self.compressed = self.compress_lz4(data)
         sc = len(self.compressed)
         su = len(data)
         rc = sc / su
         if self.args.verbose:
             print("Size: {} Packed: {} Ratio: {:.2f}".format(su, sc, rc))
         log().info('Size: %d Packed: %d Ratio: %d', su, sc, rc)
+
+    def compress_lz4(self, data):
+        "Compress using lz4 algorithm"
+        log().debug('Lz4 compression')
+        if len(data)<=4096:
+            input_data = data
+        else:
+            input_data = data[:4080] + bytearray(0 for i in range(16)) + data[4080:]
+        compressed = lz4.frame.compress(input_data, block_linked=False, return_bytearray=True, 
+                                        store_size=False)
+        if LZ4_SKIP_FIRST:
+            compressed = compressed[LZ4_SKIP_FIRST:]
+        if LZ4_SKIP_LAST:
+            compressed = compressed[:-LZ4_SKIP_LAST]
+        return compressed
+
+    def compress_legacy(self, data):
+        "Compress using legacy algorithm"
+        log().debug('Legacy compression')
+        compress = Compress(data)
+        compress.compress()
+        compress.pack()
+        compressed = bytearray(compress.packed)
+        return compressed
 
     def __write(self, value):
         self.args.destination.write(("{}{}".format(value, os.linesep)).encode())
@@ -192,7 +221,7 @@ class AtariImageConverter:
         "Write uncompress routine"
         if self.args.uncompress:
             log().debug('Saving uncompress routine')
-            uncompress = Uncompress6502()
+            uncompress = UncompressLegacy() if self.args.compressor == 'legacy' else UncompressLz4()
             contents = uncompress.assembly.splitlines()
             for content in contents:
                 print(content, file=self.args.uncompress)
@@ -239,6 +268,7 @@ def add_parser_args(parser):
     parser.add_argument('-r', '--ratio', help='color ratio (8/ratio=colors per byte)', type=int, choices=(8,4,2), default=8)
     parser.add_argument('-t', '--type', choices=('asm', 'bin'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
+    parser.add_argument('-m', '--compressor', choices=('legacy', 'lz4'), help='select compress type', default='legacy')
 
 def get_parser():
     "Create parser and add cli arguments"
