@@ -72,7 +72,7 @@ Convert indexed 4-colors gif (2-bits per color) to compressed .asm file (Atari A
 
 Apart of simple (legacy) compression support for lz4 has been added (-m option):
 
-`imgconv -s path_to_input_file.gif -d path_to_output.asm -r 4 -e -c -u uncompress.asm` -m lz4
+`imgconv -s path_to_input_file.gif -d path_to_output.asm -r 4 -e -c -u uncompress.asm -m lz4`
 
 ## SAPConv
 
@@ -100,4 +100,4 @@ Convert SAP file to .asm format (bytes):
 
 Compression of music data is supported as well:
 
-`sapconv -s path_to_input_file.sap -d path_to_output_file.asm` -c -m lz4 -u uncompress.asm
+`sapconv -s path_to_input_file.sap -d path_to_output_file.asm -c -m lz4 -u uncompress.asm`
