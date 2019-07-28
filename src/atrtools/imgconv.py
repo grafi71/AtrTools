@@ -110,6 +110,7 @@ class AtariImageConverter:
             print("Image resolution: {}x{}".format(img.width, img.height))
         
         self.width, self.height = (img.width, img.height)
+        no_bytes = 0
         for vpos in range(0, img.height):
             line = []
             for hbyte in range(0, int(img.width/self.args.ratio)):
@@ -120,6 +121,9 @@ class AtariImageConverter:
                     bval |= col
                 assert bval<256, "Error: byte value greater then 255, consider changing color ratio!"
                 line.append(bval)
+                no_bytes += 1
+                if not (no_bytes+16)%4096:
+                    line.extend(0 for _ in range(16))
             lines.append(line)
         self.lines = lines
         for color in color_generator():
@@ -170,7 +174,10 @@ class AtariImageConverter:
             lines = [data[i*n: i*n+n] for i in range(len(data)//n+(1 if len(data)%n else 0))]
             for line in lines:
                 yield "\t\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
-        
+
+        if self.args.align:
+            self.__write("\t.align $1000")
+
         self.__write("\t.local image_{} ; width={} height={}".format(
                      self.args.label, self.width, self.height))
 
@@ -181,8 +188,8 @@ class AtariImageConverter:
             self.__write(line)
         
         self.__write("\t.endl")
-        self.write_colors()
         self.write_dlist()
+        self.write_colors()
         self.write_uncompress()
 
     def write_uncompress(self):
@@ -197,7 +204,7 @@ class AtariImageConverter:
     def write_colors(self):
         "Append color information"
         log().debug('Saving color palette')
-        self.__write("\n\t.local colors_{}".format(self.args.label))
+        self.__write("\t.local colors_{}".format(self.args.label))
         for index, color in enumerate(self.colors):
             clr = (index, *(RGB2AtariColorConverter(color).value[:4]))
             self.__write("c{}\t\t.byte ${:02x}".format(index, clr[-1]))
@@ -209,16 +216,16 @@ class AtariImageConverter:
         "Append display list"
         log().debug('Saving display list')
         if self.args.display_list and not self.args.compress:
-            self.__write_text("""
-	.local dlist_{label}
+            if self.args.align:
+                self.__write("\t.align $400")
+            self.__write_text("""\t.local dlist_{label}
 :3		.byte $70
 		.byte $4{antic}, a(image_{label})
 :101	.byte $0{antic}
 		.byte $4{antic}, a(image_{label}+$1000)
 :89		.byte $0{antic}
 		.byte $41, a(dlist_{label})
-	.endl
-            """.format(label=self.args.label, antic=hex(self.args.antic_mode)[-1]))
+\t.endl""".format(label=self.args.label, antic=hex(self.args.antic_mode)[-1]))
 
     def __save_bin(self):
         "Save binary data"
@@ -245,14 +252,15 @@ def add_parser_args(parser):
     parser.add_argument('-d', '--destination', type=argparse.FileType('wb'), help='path to destination asm file', required=True)
     parser.add_argument('-n', '--number', type=int, default=20, help='number of bytes per line for compressed data')
     parser.add_argument('-l', '--label', help='label name', default='1')
-    parser.add_argument('-i', '--display-list', help='generate display list in asm file', action='store_true')
+    parser.add_argument('-i', '--display-list', help='generate display list in asm file (uncompressed only)', action='store_true')
     parser.add_argument('-r', '--ratio', help='color ratio (8/ratio=colors per byte)', type=int, choices=(8,4,2), default=4)
     parser.add_argument('-t', '--type', choices=('asm', 'bin'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
     parser.add_argument('-m', '--compressor', choices=('legacy', 'lz4'), help='select compress type', default='legacy')
     parser.add_argument('-c', '--compress', help='compress data', action='store_true')
     parser.add_argument('-u', '--uncompress', help='save routine for data uncompress', type=argparse.FileType('w'))
-    parser.add_argument('-a', '--antic-mode', help='antic mode', type=int, choices=(13,14,15), default=14)
+    parser.add_argument('-o', '--antic-mode', help='set antic mode', type=int, choices=(13,14,15), default=14)
+    parser.add_argument('-a', '--align', help='include .align command (uncompressed only)', action='store_true')
 
 def get_parser():
     "Create parser and add cli arguments"

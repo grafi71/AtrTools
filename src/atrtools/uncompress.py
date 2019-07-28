@@ -105,16 +105,10 @@ noindst	sta SCREEN_DST_L
 		clc
 		lda SCREEN_TMP_L
 		adc #1
-		cmp #{LINE_BYTES}
+		cmp #40
 		bne nonewli
 		inc SCREEN_TMP_H
-		lda SCREEN_TMP_H
-		cmp #{ANTIC_LINE_SKIP}	
-		bne nothalf		
 		tya
-		sta SCREEN_DST_L
-		inc SCREEN_DST_H
-nothalf	tya
 nonewli	sta SCREEN_TMP_L
 		rts
 

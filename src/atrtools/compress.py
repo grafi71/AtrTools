@@ -35,14 +35,13 @@ class Lz4Compress(Compress):
     def compress(self):
         "Compress using lz4 algorithm"
         log().debug('Lz4 compression')
-        data = self.data
-
-        if len(data)<=4096:
-            input_data = data
-        else:
-            input_data = data[:4080] + bytearray(0 for i in range(16)) + data[4080:]
-        compressed = lz4.frame.compress(input_data, block_linked=False, return_bytearray=True, 
-                                        store_size=False)
+        # data = self.data
+        # if len(data)<=4096:
+        #     input_data = data
+        # else:
+        #     input_data = data[:4080] + bytearray(0 for i in range(16)) + data[4080:]
+        compressed = lz4.frame.compress(self.data, block_linked=False, 
+                                        return_bytearray=True, store_size=False)
         if self.__class__.LZ4_SKIP_FIRST:
             compressed = compressed[self.__class__.LZ4_SKIP_FIRST:]
         if self.__class__.LZ4_SKIP_LAST:
