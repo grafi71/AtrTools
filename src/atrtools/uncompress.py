@@ -142,6 +142,7 @@ noincsh	sta SCREEN_SRC_L
 class UncompressLz4(Uncompress):
 	ASSEMBLY = """
 ; CODE: xxl, fox
+; SEE: https://xxl.atari.pl/lz4-decompressor/
 ; ENTRY: destination adress store in DEST
 				.proc unlz4
                 jsr    get_byte                  ; length of literals

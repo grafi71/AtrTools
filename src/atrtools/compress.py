@@ -1,5 +1,108 @@
 "Simple compression routine."
 
+import logging
+import lz4.frame
+
+from atrtools.uncompress import (UncompressLegacy, UncompressLz4)
+
+
+def log():
+    return logging.getLogger(__name__)
+
+
+class Compress:
+    "Generic compress class"
+
+    def __init__(self, data):
+        "Construct object from byte data."
+        self.data = data
+        self.len = len(data)
+        
+    def compress(self):
+        "Generic compress class"
+        raise NotImplementedError('This method is not implemented')
+
+    @classmethod
+    def create_compressor(cls, name):
+        return {'legacy': LegacyCompress, 'lz4': Lz4Compress}[name]
+
+
+class Lz4Compress(Compress):
+    
+    LZ4_SKIP_FIRST = 11
+    LZ4_SKIP_LAST = 0
+
+    def compress(self):
+        "Compress using lz4 algorithm"
+        log().debug('Lz4 compression')
+        data = self.data
+
+        if len(data)<=4096:
+            input_data = data
+        else:
+            input_data = data[:4080] + bytearray(0 for i in range(16)) + data[4080:]
+        compressed = lz4.frame.compress(input_data, block_linked=False, return_bytearray=True, 
+                                        store_size=False)
+        if self.__class__.LZ4_SKIP_FIRST:
+            compressed = compressed[self.__class__.LZ4_SKIP_FIRST:]
+        if self.__class__.LZ4_SKIP_LAST:
+            compressed = compressed[:-self.__class__.LZ4_SKIP_LAST]
+        return compressed
+
+    @classmethod
+    def uncompress(cls):
+        "Return 6502 uncompress routine"
+        return UncompressLz4()
+
+
+class LegacyCompress(Compress):
+    "Legacy compress class"
+
+    def __pack(self):
+        "Compress data"
+        compressed = []
+        idx = 0
+        while idx < self.len-1:
+            cnt = 0
+            while idx < self.len-1 and self.data[idx] == self.data[idx+1]:
+                cnt += 1
+                idx += 1
+            if cnt:
+                compressed.append(RepeatedValues(self.data[idx], cnt+1))
+                idx += 1 
+            else:
+                buf = []
+                while idx < self.len-1 and self.data[idx] != self.data[idx+1]:
+                    buf.append(self.data[idx])
+                    idx += 1
+                if buf:
+                    compressed.append(UniqueValues(buf))
+        
+        if idx != self.len:
+            lst = self.data[-1]
+            if compressed:
+                if not compressed[-1].adjust_last(lst):
+                    compressed.append(UniqueValues([lst]))
+            else:
+                compressed.append(UniqueValues([lst]))
+        
+        return compressed
+
+    def compress(self):
+        "Compress and export data to bytearray"
+        log().debug('Legacy compression')
+        packed = []
+        compressed = self.__pack()
+        for data in compressed:
+            data.export(packed)
+        return bytearray(packed)
+
+    @classmethod
+    def uncompress(cls):
+        "Return 6502 uncompress routine"
+        return UncompressLegacy()
+
+
 class RepeatedValues:
     "Type for single value repeated."
 
@@ -54,53 +157,3 @@ class UniqueValues:
         "Append value to values"
         self.values.append(value)
         return True
-
-class Compress:
-    "Compress class"
-
-    def __init__(self, data):
-        "Construct object from byte data."
-        self.data = data
-        self.len = len(data)
-        self.__compressed = []
-        self.__packed = []
-
-    @property
-    def compressed(self):
-        return self.__compressed
-
-    @property
-    def packed(self):
-        return self.__packed
-
-    def compress(self):
-        "Compress data"
-        idx = 0
-        while idx < self.len-1:
-            cnt = 0
-            while idx < self.len-1 and self.data[idx] == self.data[idx+1]:
-                cnt += 1
-                idx += 1
-            if cnt:
-                self.compressed.append(RepeatedValues(self.data[idx], cnt+1))
-                idx += 1 
-            else:
-                buf = []
-                while idx < self.len-1 and self.data[idx] != self.data[idx+1]:
-                    buf.append(self.data[idx])
-                    idx += 1
-                if buf:
-                    self.compressed.append(UniqueValues(buf))
-        
-        if idx != self.len:
-            lst = self.data[-1]
-            if self.compressed:
-                if not self.compressed[-1].adjust_last(lst):
-                    self.compressed.append(UniqueValues([lst]))
-            else:
-                self.compressed.append(UniqueValues([lst]))
-
-    def pack(self):
-        "Pack data to Atari format"
-        for data in self.compressed:
-            data.export(self.packed)

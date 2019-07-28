@@ -10,13 +10,8 @@ import math
 import itertools
 
 from PIL import Image
-import lz4.frame
 
-from atrtools.compress import Compress
-from atrtools.uncompress import (UncompressLegacy, UncompressLz4)
-
-LZ4_SKIP_FIRST = 11
-LZ4_SKIP_LAST = 0
+from atrtools.compress import (LegacyCompress, Lz4Compress, Compress)
 
 def log():
 	return logging.getLogger(__name__)
@@ -89,6 +84,7 @@ class AtariImageConverter:
         self.width = None
         self.height = None
         self.compressed = None
+        self.compressor_cls = Compress.create_compressor(self.args.compressor)
         self.colors = []
 
     @property
@@ -143,10 +139,8 @@ class AtariImageConverter:
         log().debug('Compressing image data')
         data = self.lines_to_bytearray()
         log().info('Data size: %d', len(data))
-        if self.args.compressor == 'legacy':
-            self.compressed = self.compress_legacy(data)
-        else:
-            self.compressed = self.compress_lz4(data)
+        compressor = self.compressor_cls(data)
+        self.compressed = compressor.compress()
         sc = len(self.compressed)
         su = len(data)
         rc = sc / su
@@ -154,55 +148,28 @@ class AtariImageConverter:
             print("Size: {} Packed: {} Ratio: {:.2f}".format(su, sc, rc))
         log().info('Size: %d Packed: %d Ratio: %d', su, sc, rc)
 
-    def compress_lz4(self, data):
-        "Compress using lz4 algorithm"
-        log().debug('Lz4 compression')
-        if len(data)<=4096:
-            input_data = data
-        else:
-            input_data = data[:4080] + bytearray(0 for i in range(16)) + data[4080:]
-        compressed = lz4.frame.compress(input_data, block_linked=False, return_bytearray=True, 
-                                        store_size=False)
-        if LZ4_SKIP_FIRST:
-            compressed = compressed[LZ4_SKIP_FIRST:]
-        if LZ4_SKIP_LAST:
-            compressed = compressed[:-LZ4_SKIP_LAST]
-        return compressed
-
-    def compress_legacy(self, data):
-        "Compress using legacy algorithm"
-        log().debug('Legacy compression')
-        compress = Compress(data)
-        compress.compress()
-        compress.pack()
-        compressed = bytearray(compress.packed)
-        return compressed
-
     def __write(self, value):
         self.args.destination.write(("{}{}".format(value, os.linesep)).encode())
 
+    def __write_text(self, text):
+        for i in text.splitlines():
+            self.__write(i)
+    
     def __save_asm(self):
         "Save image data as asm"
         log().debug('Saving image data to file')
 
         def generate_lines(lines):
             "Generator for uncompressed asm data lines"
-            nxt = 1
-            for lnum, line in enumerate(lines, 1):
-                yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
-                if not lnum%102 and self.args.align and len(self.lines)>lnum:
-                    yield '\t.align 4096'
-                    yield 'next_{}'.format(nxt)
-                    nxt += 1
+            for line in lines:
+                yield "\t\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
+
         def generate_compressed_lines(data):
             "Generator for compressed asm data lines"
             n = self.args.number
             lines = [data[i*n: i*n+n] for i in range(len(data)//n+(1 if len(data)%n else 0))]
             for line in lines:
-                yield "\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
-
-        if self.args.align and not self.args.compress:
-            self.__write("\t.align 4096")
+                yield "\t\t.byte {}".format(",".join("${:02x}".format(i) for i in line))
         
         self.__write("\t.local image_{} ; width={} height={}".format(
                      self.args.label, self.width, self.height))
@@ -215,13 +182,14 @@ class AtariImageConverter:
         
         self.__write("\t.endl")
         self.write_colors()
+        self.write_dlist()
         self.write_uncompress()
 
     def write_uncompress(self):
         "Write uncompress routine"
         if self.args.uncompress:
             log().debug('Saving uncompress routine')
-            uncompress = UncompressLegacy() if self.args.compressor == 'legacy' else UncompressLz4()
+            uncompress = self.compressor_cls.uncompress()
             contents = uncompress.assembly.splitlines()
             for content in contents:
                 print(content, file=self.args.uncompress)
@@ -229,13 +197,28 @@ class AtariImageConverter:
     def write_colors(self):
         "Append color information"
         log().debug('Saving color palette')
-        self.__write("\t.local colors_{}".format(self.args.label))
+        self.__write("\n\t.local colors_{}".format(self.args.label))
         for index, color in enumerate(self.colors):
             clr = (index, *(RGB2AtariColorConverter(color).value[:4]))
-            self.__write("c{}\t.byte ${:02x}".format(index, clr[-1]))
+            self.__write("c{}\t\t.byte ${:02x}".format(index, clr[-1]))
             if self.args.verbose:
                 print("Color {} [{:02x}{:02x}{:02x}] = {}".format(*clr))
         self.__write("\t.endl")
+
+    def write_dlist(self):
+        "Append display list"
+        log().debug('Saving display list')
+        if self.args.display_list and not self.args.compress:
+            self.__write_text("""
+	.local dlist_{label}
+:3		.byte $70
+		.byte $4{antic}, a(image_{label})
+:101	.byte $0{antic}
+		.byte $4{antic}, a(image_{label}+$1000)
+:89		.byte $0{antic}
+		.byte $41, a(dlist_{label})
+	.endl
+            """.format(label=self.args.label, antic=hex(self.args.antic_mode)[-1]))
 
     def __save_bin(self):
         "Save binary data"
@@ -260,15 +243,16 @@ def add_parser_args(parser):
     "Add cli arguments to parser"
     parser.add_argument('-s', '--source', type=argparse.FileType('rb'), help='path to source gif file', required=True)
     parser.add_argument('-d', '--destination', type=argparse.FileType('wb'), help='path to destination asm file', required=True)
-    parser.add_argument('-c', '--compress', help='compress data', action='store_true')
-    parser.add_argument('-u', '--uncompress', help='save routine for data uncompress', type=argparse.FileType('w'))
     parser.add_argument('-n', '--number', type=int, default=20, help='number of bytes per line for compressed data')
     parser.add_argument('-l', '--label', help='label name', default='1')
-    parser.add_argument('-a', '--align', help='generate align for asm file', action='store_true')
-    parser.add_argument('-r', '--ratio', help='color ratio (8/ratio=colors per byte)', type=int, choices=(8,4,2), default=8)
+    parser.add_argument('-i', '--display-list', help='generate display list in asm file', action='store_true')
+    parser.add_argument('-r', '--ratio', help='color ratio (8/ratio=colors per byte)', type=int, choices=(8,4,2), default=4)
     parser.add_argument('-t', '--type', choices=('asm', 'bin'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
     parser.add_argument('-m', '--compressor', choices=('legacy', 'lz4'), help='select compress type', default='legacy')
+    parser.add_argument('-c', '--compress', help='compress data', action='store_true')
+    parser.add_argument('-u', '--uncompress', help='save routine for data uncompress', type=argparse.FileType('w'))
+    parser.add_argument('-a', '--antic-mode', help='antic mode', type=int, choices=(13,14,15), default=14)
 
 def get_parser():
     "Create parser and add cli arguments"

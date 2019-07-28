@@ -8,14 +8,53 @@ import re
 import argparse
 import logging
 import itertools
-from collections import namedtuple
+
+from atrtools.compress import (LegacyCompress, Lz4Compress, Compress)
 
 RGX = re.compile(r'([A-Z]*)\s"?([^"]*)')
-MusicData = namedtuple('MucicData', 'address_start address_end music_data')
-
-
+    
 def log():
 	return logging.getLogger(__name__)
+
+
+class MusicData:
+    def __init__(self, address_start, address_end, music_data, compressed_data=None):
+        self.__address_start = address_start
+        self.__address_end = address_end
+        self.__music_data = music_data
+        self.__compressed_data = compressed_data
+
+    @property
+    def address_start(self):
+        return self.__address_start
+
+    @address_start.setter
+    def address_start(self, value):
+        self.__address_start = value
+
+    @property
+    def address_end(self):
+        return self.__address_end
+
+    @address_end.setter
+    def address_end(self, value):
+        self.__address_end = value
+
+    @property
+    def music_data(self):
+        return self.__music_data
+
+    @music_data.setter
+    def music_data(self, value):
+        self.__music_data = value
+
+    @property
+    def compressed_data(self):
+        return self.__compressed_data
+
+    @compressed_data.setter
+    def compressed_data(self, value):
+        self.__compressed_data = value
 
     
 class AtariSAPConverter:
@@ -27,6 +66,7 @@ class AtariSAPConverter:
         self.header = {}
         self.labels = {}
         self.data = []
+        self.compressor_cls = Compress.create_compressor(self.args.compressor)
 
     def process(self):
         log().debug('Processing music data')
@@ -80,12 +120,14 @@ class AtariSAPConverter:
  
             self.data.append(MusicData(address_start=address_start,
                                        address_end=address_end, 
+                                       compressed_data=None,
                                        music_data=self.sap[index: index+size_bytes+1]))
             index += size_bytes
             if index == len(self.sap)-1:
                 break
 
     def generate_music_data(self, data):
+        "Music data generator"
         log().debug('Generating music data')
         buf = []
         for i in data:
@@ -103,6 +145,8 @@ class AtariSAPConverter:
 
     def __save_asm(self):
         "Save asm file"
+        log().debug('Saving music data to asm file')
+
         for k in self.labels:
                 self.__write('SAP_MUSIC_{} = ${}'.format(k, self.labels[k]))
         self.__write("\n\t.local sap_music_header")
@@ -112,25 +156,53 @@ class AtariSAPConverter:
 
         for idx, data in enumerate(self.data):
             self.__write("\n\torg ${}\n".format(data.address_start))
-            self.__write("\t.local sap_music_data{} ; start=${}, end=${}".format(idx, data.address_start, 
-                                                                 data.address_end))
-            gen_data = self.generate_music_data(data.music_data)
+            self.__write("\t.local sap_music_data{} ; start=${}, end=${}".format(idx, 
+                                                                                 data.address_start,
+                                                                                 data.address_end))
+            gen_data = self.generate_music_data(data.compressed_data if self.args.compress else data.music_data)
             for row in gen_data:
                 self.__write("\t{}".format(row))
-            self.__write("\t.endl")
+            self.__write("\t.endl ; music {} data".format('compressed' if self.args.compress else 'raw'))
+        
+        self.write_uncompress()
+
+    def write_uncompress(self):
+        "Write uncompress routine"
+        if self.args.uncompress:
+            log().debug('Saving uncompress routine')
+            uncompress = self.compressor_cls.uncompress()
+            contents = uncompress.assembly.splitlines()
+            for content in contents:
+                print(content, file=self.args.uncompress)
 
     def __save_bin(self):
         "Save binary file"  
-        for _, data in enumerate(self.data):
-            self.args.destination.write(data.music_data)
+        log().debug('Saving binary music data to file')
+        for data in self.data:
+            self.args.destination.write(data.compressed_data if self.args.compress else data.music_data)
 
     def save(self):
         "Save music"
-        log().debug('Saving music data to file')
         if self.args.type == 'asm':
             self.__save_asm()
         elif self.args.type == 'bin':
             self.__save_bin()
+
+    def compress(self):
+        "Compress routine"
+        log().debug('Compressing music data')
+        for data_block in self.data:
+            data = data_block.music_data
+            log().info('Data size: %d', len(data))
+            compressor = self.compressor_cls(data)
+            compressed = compressor.compress()
+            data_block.compressed_data = compressed
+            sc = len(compressed)
+            su = len(data)
+            rc = sc / su
+            if self.args.verbose:
+                print("Size: {} Packed: {} Ratio: {:.2f}".format(su, sc, rc))
+            log().info('Size: %d Packed: %d Ratio: %d', su, sc, rc)
 
 def add_parser_args(parser):
     "Add cli arguments to parser"
@@ -139,6 +211,9 @@ def add_parser_args(parser):
     parser.add_argument('-l', '--labels', nargs='+', default=['INIT', 'PLAYER'], help='labelled header keys', required=False)
     parser.add_argument('-t', '--type', choices=('asm', 'binary'), help='select output type', default='asm')
     parser.add_argument('-e', '--verbose', action='store_true', help='generate more verbose output')
+    parser.add_argument('-c', '--compress', help='compress data', action='store_true')
+    parser.add_argument('-u', '--uncompress', help='save routine for data uncompress', type=argparse.FileType('w'))
+    parser.add_argument('-m', '--compressor', choices=('legacy', 'lz4'), help='select compress type', default='legacy')
 
 def get_parser():
     "Create parser and add cli arguments"
@@ -151,6 +226,7 @@ def process(args):
     log().debug("Start processing")
     sap_converter = AtariSAPConverter(args)
     sap_converter.process()
+    sap_converter.compress()
     sap_converter.save()
     log().debug("Done")
 
